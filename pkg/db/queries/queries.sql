@@ -3,11 +3,20 @@ INSERT INTO active_skills (
   display_name,
   description,
   types,
-  embedding
+  embedding_id
 ) VALUES (
   sqlc.arg(display_name)::text,
   sqlc.arg(description)::text,
   sqlc.arg(types),
+  sqlc.arg(embedding_id)::bigint
+)
+RETURNING
+  id;
+
+-- name: CreateEmbedding :one
+INSERT INTO embeddings (
+  embedding
+) VALUES (
   sqlc.arg(embedding)::vector(3072)
 )
 RETURNING
@@ -15,10 +24,12 @@ RETURNING
 
 -- name: GetMostSimilarActiveSkill :one
 SELECT
-  id,
-  display_name,
-  description,
-  types
-FROM active_skills
-ORDER BY embedding <-> sqlc.arg(query_embedding)::vector(3072)
+  a.id,
+  a.display_name,
+  a.description,
+  a.types
+FROM active_skills a
+JOIN embeddings e ON e.id = a.embedding_id
+WHERE a.embedding_id IS NOT NULL
+ORDER BY e.embedding <-> sqlc.arg(query_embedding)::vector(3072)
 LIMIT 1;

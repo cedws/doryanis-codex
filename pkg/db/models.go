@@ -14,7 +14,12 @@ type ActiveSkill struct {
 	DisplayName pgtype.Text
 	Description pgtype.Text
 	Types       []string
-	Embedding   pgvector.Vector
+	EmbeddingID pgtype.Int8
 	CreatedAt   pgtype.Timestamptz
 	UpdatedAt   pgtype.Timestamptz
+}
+
+type Embedding struct {
+	ID        int64
+	Embedding pgvector.Vector
 }

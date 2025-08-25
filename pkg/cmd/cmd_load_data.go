@@ -89,11 +89,16 @@ func saveChunk(ctx context.Context, dbPool *db.Queries, skills []types.ActiveSki
 	for i, skill := range skills {
 		vec := pgvector.NewVector(toFloat32Slice(embeddings[i]))
 
-		_, err := dbPool.CreateActiveSkill(ctx, db.CreateActiveSkillParams{
+		id, err := dbPool.CreateEmbedding(ctx, vec)
+		if err != nil {
+			return err
+		}
+
+		_, err = dbPool.CreateActiveSkill(ctx, db.CreateActiveSkillParams{
 			DisplayName: skill.DisplayName,
 			Description: skill.Description,
 			Types:       skill.Types,
-			Embedding:   vec,
+			EmbeddingID: id,
 		})
 		if err != nil {
 			return err

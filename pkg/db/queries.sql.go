@@ -17,12 +17,12 @@ INSERT INTO active_skills (
   display_name,
   description,
   types,
-  embedding
+  embedding_id
 ) VALUES (
   $1::text,
   $2::text,
   $3,
-  $4::vector(3072)
+  $4::bigint
 )
 RETURNING
   id
@@ -32,7 +32,7 @@ type CreateActiveSkillParams struct {
 	DisplayName string
 	Description string
 	Types       []string
-	Embedding   pgvector.Vector
+	EmbeddingID int64
 }
 
 func (q *Queries) CreateActiveSkill(ctx context.Context, arg CreateActiveSkillParams) (int64, error) {
@@ -40,8 +40,25 @@ func (q *Queries) CreateActiveSkill(ctx context.Context, arg CreateActiveSkillPa
 		arg.DisplayName,
 		arg.Description,
 		arg.Types,
-		arg.Embedding,
+		arg.EmbeddingID,
 	)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
+const createEmbedding = `-- name: CreateEmbedding :one
+INSERT INTO embeddings (
+  embedding
+) VALUES (
+  $1::vector(3072)
+)
+RETURNING
+  id
+`
+
+func (q *Queries) CreateEmbedding(ctx context.Context, embedding pgvector.Vector) (int64, error) {
+	row := q.db.QueryRow(ctx, createEmbedding, embedding)
 	var id int64
 	err := row.Scan(&id)
 	return id, err
@@ -49,12 +66,14 @@ func (q *Queries) CreateActiveSkill(ctx context.Context, arg CreateActiveSkillPa
 
 const getMostSimilarActiveSkill = `-- name: GetMostSimilarActiveSkill :one
 SELECT
-  id,
-  display_name,
-  description,
-  types
-FROM active_skills
-ORDER BY embedding <-> $1::vector(3072)
+  a.id,
+  a.display_name,
+  a.description,
+  a.types
+FROM active_skills a
+JOIN embeddings e ON e.id = a.embedding_id
+WHERE a.embedding_id IS NOT NULL
+ORDER BY e.embedding <-> $1::vector(3072)
 LIMIT 1
 `
 
