@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 
+	"github.com/openai/openai-go"
 	"github.com/pgvector/pgvector-go"
 )
 
@@ -15,18 +16,21 @@ type queryCmd struct {
 func (q queryCmd) Run(cli *cli) error {
 	ctx := context.Background()
 
-	dbPool, err := connectDB(ctx, cli.DBUsername, cli.DBPassword, cli.DBHost)
+	_, dbQuery, err := connectDB(ctx, cli.DBUsername, cli.DBPassword, cli.DBHost)
 	if err != nil {
 		return err
 	}
 
-	embedding, err := makeEmbeddings(ctx, []string{q.Query})
+	openaiClient := openai.NewClient()
+
+	embedding, err := makeEmbeddings(ctx, openaiClient, []string{q.Query})
 	if err != nil {
 		return err
 	}
 
 	vec := pgvector.NewVector(toFloat32Slice(embedding[0]))
-	row, err := dbPool.GetMostSimilarActiveSkill(ctx, vec)
+
+	row, err := dbQuery.GetMostSimilarActiveSkill(ctx, vec)
 	if err != nil {
 		return err
 	}

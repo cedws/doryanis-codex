@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding"
 	"encoding/json"
+	"fmt"
 	"log"
 	"maps"
 	"os"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/cedws/doryanis-codex/pkg/db"
 	"github.com/cedws/doryanis-codex/pkg/types"
+	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/openai/openai-go"
 	"github.com/pgvector/pgvector-go"
 )
@@ -22,9 +24,13 @@ type loadDataCmd struct {
 func (l loadDataCmd) Run(cli *cli) error {
 	ctx := context.Background()
 
-	dbPool, err := connectDB(ctx, cli.DBUsername, cli.DBPassword, cli.DBHost)
+	dbPool, dbQuery, err := connectDB(ctx, cli.DBUsername, cli.DBPassword, cli.DBHost)
 	if err != nil {
 		return err
+	}
+
+	if err := db.Migrate(ctx, stdlib.OpenDBFromPool(dbPool)); err != nil {
+		return fmt.Errorf("failed to migrate database: %w", err)
 	}
 
 	data, err := loadDataFile(l.DataPath)
@@ -34,7 +40,7 @@ func (l loadDataCmd) Run(cli *cli) error {
 
 	skills := collectSkills(data)
 
-	return insertSkills(ctx, dbPool, skills)
+	return insertSkills(ctx, dbQuery, skills)
 }
 
 func loadDataFile(path string) (*types.Data, error) {
@@ -58,6 +64,7 @@ func collectSkills(data *types.Data) []types.ActiveSkill {
 
 func insertSkills(ctx context.Context, dbPool *db.Queries, skills []types.ActiveSkill) error {
 	chunks := slices.Chunk(skills, 10)
+	openaiClient := openai.NewClient()
 
 	for chunk := range chunks {
 		ents := make([]encoding.TextMarshaler, 0, len(chunk))
@@ -65,7 +72,7 @@ func insertSkills(ctx context.Context, dbPool *db.Queries, skills []types.Active
 			ents = append(ents, s)
 		}
 
-		embeddings, err := makeEntEmbeddings(ctx, ents)
+		embeddings, err := makeEntEmbeddings(ctx, openaiClient, ents)
 		if err != nil {
 			return err
 		}
@@ -105,7 +112,7 @@ func toFloat32Slice(f []float64) []float32 {
 	return out
 }
 
-func makeEntEmbeddings(ctx context.Context, entities []encoding.TextMarshaler) ([][]float64, error) {
+func makeEntEmbeddings(ctx context.Context, client openai.Client, entities []encoding.TextMarshaler) ([][]float64, error) {
 	var input []string
 	for _, ent := range entities {
 		text, err := ent.MarshalText()
@@ -114,12 +121,10 @@ func makeEntEmbeddings(ctx context.Context, entities []encoding.TextMarshaler) (
 		}
 		input = append(input, string(text))
 	}
-	return makeEmbeddings(ctx, input)
+	return makeEmbeddings(ctx, client, input)
 }
 
-func makeEmbeddings(ctx context.Context, input []string) ([][]float64, error) {
-	client := openai.NewClient()
-
+func makeEmbeddings(ctx context.Context, client openai.Client, input []string) ([][]float64, error) {
 	resp, err := client.Embeddings.New(ctx, openai.EmbeddingNewParams{
 		Input: openai.EmbeddingNewParamsInputUnion{
 			OfArrayOfStrings: input,
