@@ -29,6 +29,7 @@ type cli struct {
 
 	Query    queryCmd    `cmd:""`
 	LoadData loadDataCmd `cmd:""`
+	Migrate  migrateCmd  `cmd:""`
 }
 
 func Execute() {

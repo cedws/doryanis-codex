@@ -13,7 +13,7 @@ CREATE TABLE active_skills (
   display_name TEXT,
   description TEXT,
   types JSONB,
-  embedding_id BIGINT REFERENCES embeddings(id) ON DELETE SET NULL,
+  embedding_id BIGINT REFERENCES embeddings(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

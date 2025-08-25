@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding"
 	"encoding/json"
-	"fmt"
 	"log"
 	"maps"
 	"os"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/cedws/doryanis-codex/pkg/db"
 	"github.com/cedws/doryanis-codex/pkg/types"
-	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/openai/openai-go"
 	"github.com/pgvector/pgvector-go"
 )
@@ -24,13 +22,9 @@ type loadDataCmd struct {
 func (l loadDataCmd) Run(cli *cli) error {
 	ctx := context.Background()
 
-	dbPool, dbQuery, err := connectDB(ctx, cli.DBUsername, cli.DBPassword, cli.DBHost)
+	_, dbQuery, err := connectDB(ctx, cli.DBUsername, cli.DBPassword, cli.DBHost)
 	if err != nil {
 		return err
-	}
-
-	if err := db.Migrate(ctx, stdlib.OpenDBFromPool(dbPool)); err != nil {
-		return fmt.Errorf("failed to migrate database: %w", err)
 	}
 
 	data, err := loadDataFile(l.DataPath)

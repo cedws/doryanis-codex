@@ -11,14 +11,24 @@ import (
 //go:embed migrations/*.sql
 var migrations embed.FS
 
-func Migrate(ctx context.Context, db *sql.DB) error {
+func init() {
 	goose.SetBaseFS(migrations)
 
 	if err := goose.SetDialect("postgres"); err != nil {
+		panic(err)
+	}
+}
+
+func MigrateUp(ctx context.Context, db *sql.DB) error {
+	if err := goose.UpContext(ctx, db, "migrations"); err != nil {
 		return err
 	}
 
-	if err := goose.Up(db, "migrations"); err != nil {
+	return nil
+}
+
+func MigrateDown(ctx context.Context, db *sql.DB) error {
+	if err := goose.DownToContext(ctx, db, "migrations", 0); err != nil {
 		return err
 	}
 
