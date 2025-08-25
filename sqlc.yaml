@@ -1,0 +1,15 @@
+version: "2"
+
+sql:
+  - schema: "pkg/db/migrations"
+    queries: "pkg/db/queries"
+    engine: "postgresql"
+    gen:
+      go:
+        package: "db"
+        sql_package: "pgx/v5"
+        out: "pkg/db"
+        overrides:
+          - column: active_skills.types
+            go_type:
+              type: "[]string"

@@ -1,0 +1,19 @@
+services:
+  postgres:
+    profiles: [all, postgres]
+    image: pgvector/pgvector:pg17-trixie
+    container_name: postgres
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+    expose:
+      - "5432"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    restart: always
+
+volumes:
+  postgres:
+    driver: local
