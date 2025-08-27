@@ -2,11 +2,8 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
-	"os"
 
-	"github.com/openai/openai-go"
-	"github.com/pgvector/pgvector-go"
+	"github.com/cedws/doryanis-codex/pkg/codex"
 )
 
 type queryCmd struct {
@@ -16,28 +13,11 @@ type queryCmd struct {
 func (q queryCmd) Run(cli *cli) error {
 	ctx := context.Background()
 
-	_, dbQuery, err := connectDB(ctx, cli.DBUsername, cli.DBPassword, cli.DBHost)
-	if err != nil {
-		return err
+	opts := codex.Options{
+		DBUsername: cli.DBUsername,
+		DBPassword: cli.DBPassword,
+		DBHost:     cli.DBHost,
 	}
 
-	openaiClient := openai.NewClient()
-
-	embedding, err := makeEmbeddings(ctx, openaiClient, []string{q.Query})
-	if err != nil {
-		return err
-	}
-
-	vec := pgvector.NewVector(toFloat32Slice(embedding[0]))
-
-	row, err := dbQuery.GetMostSimilarActiveSkill(ctx, vec)
-	if err != nil {
-		return err
-	}
-
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	enc.Encode(row)
-
-	return nil
+	return codex.Query(ctx, opts, q.Query)
 }

@@ -14,18 +14,18 @@ import (
 
 const createActiveSkill = `-- name: CreateActiveSkill :one
 INSERT INTO active_skills (
-  display_name,
-  description,
-  types,
-  embedding_id
+    display_name,
+    description,
+    types,
+    embedding_id
 ) VALUES (
-  $1::text,
-  $2::text,
-  $3,
-  $4::bigint
+    $1::text,
+    $2::text,
+    $3,
+    $4::bigint
 )
 RETURNING
-  id
+    id
 `
 
 type CreateActiveSkillParams struct {
@@ -49,12 +49,12 @@ func (q *Queries) CreateActiveSkill(ctx context.Context, arg CreateActiveSkillPa
 
 const createEmbedding = `-- name: CreateEmbedding :one
 INSERT INTO embeddings (
-  embedding
+    embedding
 ) VALUES (
-  $1::vector(3072)
+    $1::vector(3072)
 )
 RETURNING
-  id
+    id
 `
 
 func (q *Queries) CreateEmbedding(ctx context.Context, embedding pgvector.Vector) (int64, error) {
@@ -64,34 +64,52 @@ func (q *Queries) CreateEmbedding(ctx context.Context, embedding pgvector.Vector
 	return id, err
 }
 
-const getMostSimilarActiveSkill = `-- name: GetMostSimilarActiveSkill :one
+const getMostSimilarActiveSkills = `-- name: GetMostSimilarActiveSkills :many
 SELECT
-  a.id,
-  a.display_name,
-  a.description,
-  a.types
-FROM active_skills a
-JOIN embeddings e ON e.id = a.embedding_id
+    a.id,
+    a.display_name,
+    a.description,
+    a.types
+FROM active_skills AS a
+INNER JOIN embeddings AS e ON a.embedding_id = e.id
 WHERE a.embedding_id IS NOT NULL
 ORDER BY e.embedding <-> $1::vector(3072)
-LIMIT 1
+LIMIT $2::int
 `
 
-type GetMostSimilarActiveSkillRow struct {
+type GetMostSimilarActiveSkillsParams struct {
+	QueryEmbedding pgvector.Vector
+	N              int32
+}
+
+type GetMostSimilarActiveSkillsRow struct {
 	ID          int64
 	DisplayName pgtype.Text
 	Description pgtype.Text
 	Types       []string
 }
 
-func (q *Queries) GetMostSimilarActiveSkill(ctx context.Context, queryEmbedding pgvector.Vector) (GetMostSimilarActiveSkillRow, error) {
-	row := q.db.QueryRow(ctx, getMostSimilarActiveSkill, queryEmbedding)
-	var i GetMostSimilarActiveSkillRow
-	err := row.Scan(
-		&i.ID,
-		&i.DisplayName,
-		&i.Description,
-		&i.Types,
-	)
-	return i, err
+func (q *Queries) GetMostSimilarActiveSkills(ctx context.Context, arg GetMostSimilarActiveSkillsParams) ([]GetMostSimilarActiveSkillsRow, error) {
+	rows, err := q.db.Query(ctx, getMostSimilarActiveSkills, arg.QueryEmbedding, arg.N)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetMostSimilarActiveSkillsRow
+	for rows.Next() {
+		var i GetMostSimilarActiveSkillsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.DisplayName,
+			&i.Description,
+			&i.Types,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

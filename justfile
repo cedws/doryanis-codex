@@ -3,3 +3,6 @@ psql:
 
 generate:
     sqlc generate
+
+format:
+    sqlfluff fix --dialect postgres pkg/db
